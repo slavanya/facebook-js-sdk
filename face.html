@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Facebook User Info</title>
+	<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+	<script type="text/javascript" src="http://ajax.aspnetcdn.com/ajax/knockout/knockout-2.2.1.js"></script>
+	<script type="text/javascript" src="ko.mapping.js"></script>
+
+	<style type="text/css">
+  body{
+    font-family: arial, helvetica;
+  }
+    #highSchoolFriends{
+      margin-bottom: 10px;
+    }
+    #highSchoolFriends img{
+      margin-left: 2px;
+    }
+    #collegeFriends img{
+      margin-left: 2px;
+    }
+    #workFriends img{
+      margin-left: 2px;
+    }
+    .posts li{
+      list-style-type: none;
+    }
+    .title{
+      font-weight: bold;
+    }
+    .birthdayPost{
+      margin-bottom: 15px;
+    }
+  </style>
+<script>
+$(document).ready(function() {
+ var mySchool;
+ var postArray = new Array();
+  window.fbAsyncInit = function() {
+// init the FB JS SDK
+    FB.init({
+      appId      : '306664052735165',                        // App ID from the app dashboard 211367632338387 306664052735165
+      status     : true,                                 // Check Facebook Login status
+      xfbml      : true                                  // Look for social plugins on the page
+    });
+
+    // Additional initialization code such as adding Event Listeners goes here changes
+ 
+
+  FB.Event.subscribe('auth.authResponseChange', function(response) {
+    if (response.status === 'connected') {
+      myInfo();
+      console.log(this.mySchool);
+      loadPics();
+      myAffliations();
+      familyRecords();
+
+      //popularPosts();
+ 
+    } else if (response.status === 'not_authorized') {
+      FB.login(function(response) {
+   		// handle the response
+ 		}, {scope: 'email, user_photos, user_birthday, user_likes, friends_education_history, user_work_history, friends_work_history, friends_relationships, read_stream, user_relationships'});
+    } else {
+      FB.login(function(response) {
+	   // handle the response
+	 }, {scope: 'email, user_photos, user_birthday, user_likes, friends_education_history, user_work_history, friends_work_history, friends_relationships, read_stream, user_relationships'})
+    }
+  });
+
+
+
+};
+  
+
+  /*
+  FB.api({
+    method: 'fql.multiquery',
+    queries: {
+        'query1': 'SELECT source_id, actor_id, target_id, message, attachment, permalink, description, type, created_time FROM stream WHERE source_id IN (SELECT target_id FROM connection WHERE source_id=me() AND is_following=1) AND is_hidden = 0 AND type = 80 AND strpos(attachment.href, "youtu") >= 0 AND created_time < ' + unix_time,
+        'query2': 'SELECT uid, name, profile_url, pic_square FROM user WHERE uid IN (SELECT actor_id FROM #query1)'
+    }
+}, 
+function(response) { 
+    console.log(response); 
+};
+   */
+
+  // Load the SDK asynchronously
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "http://connect.facebook.net/en_US/all.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+
+  
+// Take a date, and return true if the date has passed this year
+function hasDatePassedThisYear(date){
+	var birthDD = 0;
+    var birthMonth = 0;
+    var newDate = new Date(date);
+	sentMonth = newDate.getMonth() + 1;
+    sentDay = newDate.getDate();
+
+    var today = new Date();
+	var dd = today.getDate();
+	var mm = today.getMonth()+1; 
+
+	// If this month is greater than the month sent as param
+	// then return true
+	if(mm > sentMonth){
+		return true;
+	}
+	if(mm < sentMonth){
+		return false;
+	}
+	// Same month, check day
+	if(mm == sentMonth){
+		if(dd > sentDay){
+			return true;
+		}
+		else{
+			return false;
+		}
+	}
+
+}
+
+//New years
+//
+
+// Getting posts five days before date through five days after event.
+function getPostsFromMyEventWeek(fiveDaysBefore, fiveDaysAfter, postEvent){
+
+	FB.api(
+		{
+			method: 'fql.query',
+			query: 'SELECT post_id, actor_id, comment_info, message, created_time, likes FROM stream WHERE source_id=me() AND created_time > ' + fiveDaysBefore + ' AND created_time < ' + fiveDaysAfter + ' ORDER BY created_time DESC limit 100',
+		},
+		function(response) {
+			console.log(response);
+			if(postEvent == "newyears")
+        console.log("It was New Years");
+			for (var key in response) {
+        if(response[key].message.length > 0){
+  				var date = new Date(response[key].created_time*1000);
+  				var mm = date.getMonth()+1;
+  				var dd = date.getDate();
+  				var year = date.getFullYear();
+  				var postDate = mm + "/" + dd + "/" + year; 
+          switch(postEvent){
+            case "birthday":
+              $("#birthdayPosts").append("<li class='birthdayPost'><span class='title'>" + postDate + "</span><br /><a href='https://facebook.com/" + response[key].post_id + "' target='_blank'><img src='https://graph.facebook.com/" + response[key].actor_id + "/picture?type=square'></a><br/><span>" + response[key].message + " </span><br/></li>");
+            break;
+            case "newyears":
+              console.log("New years posts function appending to div");
+              $("#newYearsPosts").append("<li class='birthdayPost'><span class='title'>" + postDate + "</span><br /><a href='https://facebook.com/" + response[key].post_id + "' target='_blank'><img src='https://graph.facebook.com/" + response[key].actor_id + "/picture?type=square'></a><br/><span>" + response[key].message + " </span><br/></li>");
+            break;
+            case "thanksgiving":
+              console.log("Thanksgiving posts function appending to div");
+              $("#thanksPosts").append("<li class='birthdayPost'><span class='title'>" + postDate + "</span><br /><a href='https://facebook.com/" + response[key].post_id + "' target='_blank'><img src='https://graph.facebook.com/" + response[key].actor_id + "/picture?type=square'></a><br/><span>" + response[key].message + " </span><br/></li>");
+            break;
+            case "xmas":
+              console.log("Xmas posts function appending to div");
+              $("#xmasPosts").append("<li class='birthdayPost'><span class='title'>" + postDate + "</span><br /><a href='https://facebook.com/" + response[key].post_id + "' target='_blank'><img src='https://graph.facebook.com/" + response[key].actor_id + "/picture?type=square'></a><br/><span>" + response[key].message + " </span><br/></li>");
+            break;
+          }
+       }
+			};
+			
+		}
+	);
+}
+
+function getNewYearsPosts(){
+  // Get this years New Years date
+  console.log("New years posts function");
+  var today = new Date();
+  var yyyy = today.getFullYear();
+  var newYears = "01/01/" + yyyy;
+  newDate = new Date(newYears).getTime() / 1000;
+  // Get days before and days after
+  var THREE_DAYS = 103680;
+  var threeDaysBefore = newDate - THREE_DAYS;
+  var threeDaysAfter = newDate + THREE_DAYS;
+  console.log("New years posts function three days before: " + threeDaysBefore + " Three days after: " + threeDaysAfter);
+
+  getPostsFromMyEventWeek(threeDaysBefore, threeDaysAfter, "newyears");
+
+
+}
+
+function getXmasPosts(){
+  // Get this last years Christmas date
+  console.log("Christmas posts function");
+  var today = new Date();
+  var yyyy = today.getFullYear();
+  var mm = today.getMonth() + 1;
+  var dd = today.getDate();
+  if(mm < 12 && dd < 25){
+    // last year
+    yyyy--;
+  }
+  var xmas = "12/25/" + yyyy;
+  newDate = new Date(xmas).getTime() / 1000;
+  // Get days before and days after
+  var THREE_DAYS = 103680;
+  var threeDaysBefore = newDate - THREE_DAYS;
+  var threeDaysAfter = newDate + THREE_DAYS;
+  console.log("Xmas posts function three days before: " + threeDaysBefore + " Three days after: " + threeDaysAfter);
+
+  getPostsFromMyEventWeek(threeDaysBefore, threeDaysAfter, "xmas");
+}
+
+function getThanksPosts(){
+  // Get this last years Christmas date
+  console.log("Thanksgiving posts function");
+  var today = new Date();
+  var yyyy = today.getFullYear();
+  var mm = today.getMonth() + 1;
+  var dd = today.getDate();
+  if(mm < 11 && dd < 25){
+    // last year
+    yyyy--;
+  }
+  var thanksgiving = "11/25/" + yyyy;
+  newDate = new Date(thanksgiving).getTime() / 1000;
+  // Get days before and days after
+  var THREE_DAYS = 103680;
+  var threeDaysBefore = newDate - THREE_DAYS;
+  var threeDaysAfter = newDate + THREE_DAYS;
+  console.log("Thanksgiving posts function three days before: " + threeDaysBefore + " Three days after: " + threeDaysAfter);
+
+  getPostsFromMyEventWeek(threeDaysBefore, threeDaysAfter, "thanksgiving");
+}
+
+
+
+function myInfo() {
+  	var viewModel = {
+    	name: "Bill",
+    	birthday:""
+	}
+
+    console.log('Welcome!  Fetching your information.... ');
+    FB.api('/me', function(response) {
+      console.log('Good to see you, ' + response.name + '.');
+      viewModel.name = response.name;
+      // TODO: Can the user block thier birthday?
+      var myBirthday = response.birthday;
+      viewModel.birthday = myBirthday;
+
+      
+      // Need to see if their birthday has already passed this year, if not
+      // go to last year. 
+      var myBirthdayHasPassedThisYear = hasDatePassedThisYear(myBirthday);
+      var myLatestBirthday;
+      if (myBirthdayHasPassedThisYear) {
+      	// Use this year 02/28/2013
+      	var newDate = new Date(myBirthday);
+		  myMonth = newDate.getMonth() + 1;
+    	myDay = newDate.getDate();
+
+    	// Current date
+    	var today = new Date();
+    	var yyyy = today.getFullYear();
+
+    	// Construct this years birthdays
+    	myLatestBirthday = myMonth + "/" + myDay + "/" + yyyy; 
+      }
+      else {
+      	//Use last year 02/28/2012
+      	var newDate = new Date(myBirthday);
+		myMonth = newDate.getMonth() + 1;
+    	myDay = newDate.getDate();
+
+    	// Current date
+    	var today = new Date();
+    	var yyyy = today.getFullYear() - 1;
+    	
+    	// Construct this years birthdays
+    	myLatestBirthday = myMonth + "/" + myDay + "/" + yyyy; 
+      }
+
+      console.log(myLatestBirthday + " is my latest birthday");
+      // TODO: What if today is their birthday? 
+      // Convert their birthday to UNIX time.
+      newDate = new Date(myLatestBirthday).getTime() / 1000
+      // Let's get five days of posts before and after birthday.
+      // One day = 24 * 60 * 60
+      var FIVE_DAYS = 432000;
+      var fiveDaysBefore = newDate - FIVE_DAYS;
+      var fiveDaysAfter = newDate + FIVE_DAYS;
+      console.log(fiveDaysBefore + " five before, " + fiveDaysAfter + " five after.");
+      // Grab posts from 5 days before thru 5 days after
+      getPostsFromMyEventWeek(fiveDaysBefore, fiveDaysAfter, "birthday");
+      getNewYearsPosts();
+      getThanksPosts();
+      getXmasPosts();
+
+
+      console.log(response);
+      if(response.education){
+      	 for (var i=0;i<response.education.length;i++){
+      	 	if(response.education[i].type == "High School"){
+      	 		this.mySchool = response.education[i].school.id;
+      	 		//$("#schoolId").text(response.education[i].school.id);
+      	 		myAffliations(response.education[i].school.id);
+      	 		console.log(response.education[i]);
+      	 	}
+      	 	if(response.education[i].type == "College"){
+      	 	    $("#myCollege").append("<a href='https://facebook.com/" + response.education[i].school.id + "' target='_blank'><img src='https://graph.facebook.com/" + response.education[i].school.id + "/picture?type=normal' /></a>");
+      	 		myCollegeFriends(response.education[i].school.id);
+      	 		console.log(response.education[i]);
+      	 	}
+      	 }
+
+      	}
+
+      if(response.work){
+      	console.log(response.work);
+      		var jobs = new Array();
+      	 	for (var i=0;i<response.work.length;i++){
+      	 		jobs.push(response.work[i].employer.id);
+      	 	}
+      	 	console.log(jobs + " is the jobs");
+      	 	myWorkMates(jobs);
+      	 }
+      	
+      
+      ko.applyBindings(viewModel);
+    });
+  }
+
+  function loadPics(){
+  	// Add locations to array, keep count then sort by most
+  	FB.api('/me/photos?limit=0', function(response) {
+  		var picLocationArray = new Array();
+  		for(var i=0;i<response.data.length;i++)
+	    {
+        if(response.data[i].name && response.data[i].place){
+          $('.tagged-photos').append("<a href='" + response.data[i].source + "' target='_blank'><img src='" + response.data[i].picture +"'></a>");
+          console.log(response.data[i].place.location);
+          if(typeof response.data[i].place.location.city == 'undefined'){
+            picLocationArray.push("Coordinates");
+          }
+          else {
+            picLocationArray.push(response.data[i].place.location.city);
+          }
+        }
+      }
+
+	    var counts = {};
+
+      for(var i = 0; i< picLocationArray.length; i++) {
+        var num = picLocationArray[i];	
+        counts[num] = counts[num] ? counts[num]+1 : 1;
+      }
+
+      //console.log(counts);
+    	for (var i = 0; i < counts.length; i++) {
+    		$('.tagged-photos').append('<p>' + counts + '</p>');
+    	};
+
+    	$('#totalTagged').append("<span> User tagged in " + response.data.length + " photos.</span><br />");
+    	for(var index in counts) {
+      		$('.tagged-photos').append('<p>' + index + " : " + counts[index] + "</p>"); 
+    	}
+
+    }); //FB.api
+  }
+
+
+  function myAffliations(schoolId){
+    	console.log(schoolId);
+    	var schoolCount = 0;
+    	FB.api(
+          {
+            method: 'fql.query',
+            query: 'SELECT name, uid, education, family FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me())'
+          },
+          function(response) {
+          	for (var key in response) {
+			      //console.log(response[key].education);
+			      for (var i=0;i<response[key].education.length;i++){
+      	 			if(response[key].education[i].type == "High School" && response[key].education[i].school.id == schoolId){
+      	 				schoolCount++;
+      	 				//console.log(response[key].name + " goes to the same school");
+      	 				$("#highSchoolFriends").append("<a href='https://facebook.com/" + response[key].uid + "' target='_blank'><img src='https://graph.facebook.com/" + response[key].uid + "/picture?type=square' /></a>");
+      	 				
+      	 			}
+      	 		}
+			   }
+			   //console.log(schoolCount);
+			 $("#sameSchoolCount").text(schoolCount);
+            
+          }
+
+        );
+      }
+
+      function myCollegeFriends(schoolId){
+          var cId = schoolId;
+    	console.log(schoolId + " is the college id.");
+    	var schoolCount = 0;
+    	FB.api(
+          {
+            method: 'fql.query',
+            query: 'SELECT name, uid, education, family FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me())'
+          },
+          function(response) {
+          	for (var key in response) {
+          	    //console.log(cId + " is the college id.");
+			      //console.log(response[key]);
+			      //https://graph.facebook.com/26838881924/picture?type=normal
+			      for (var i=0;i<response[key].education.length;i++){
+      	 			if(response[key].education[i].type == "College" && response[key].education[i].school.id == cId){
+      	 				//console.log(response[key].name + " goes/went to the same colege as you");
+      	 				var schoolId = response[key].education;
+      	 				$("#collegeFriends").append("<a href='https://facebook.com/" + response[key].uid + "' target='_blank'><img src='https://graph.facebook.com/" + response[key].uid + "/picture?type=square' /></a>");
+      	 				schoolCount++;
+      	 			}
+      	 		}
+			   }
+			   //console.log(schoolCount);
+			 $("#sameCollegeCount").text(schoolCount);
+            
+          }
+
+        );
+      }
+
+      function myWorkMates(jobs){
+      	console.log(jobs);
+      	workCount = 0;
+      	if(!Array.prototype.indexOf) {
+    		Array.prototype.indexOf = function(needle) {
+        	for(var i = 0; i < this.length; i++) {
+            if(this[i] === needle) {
+                return i;
+            	}
+        	}
+        	return -1;
+    	   };
+		}
+
+      	FB.api(
+          {
+            method: 'fql.query',
+            query: 'SELECT name, uid, education, work, family FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me())'
+          },
+          function(response) {
+          	//console.log(response);
+          	for (var key in response) {
+				      //console.log(response[key] + " work history");
+				      for (var i=0;i<response[key].work.length;i++){
+	      	 			if(jobs.indexOf(response[key].work[i].employer.id) > -1){
+	      	 				console.log(response[key].name + " works or has worked with you before");
+                  // Need to check if the person is there already; 
+                  // can have duplicates if the friend worked at another place that's the same as the user or if the friends lists different 
+                  // job titles for the same company
+	      	 				$("#workFriends").append("<a href='https://facebook.com/" + response[key].uid + "' target='_blank'><img src='https://graph.facebook.com/" + response[key].uid + "/picture?type=square'></a>");
+	      	 				workCount++;
+	      	 			}
+	      	 		}
+				}
+				$("#sameJobCount").text(workCount);
+			}
+		 );
+		}
+
+      function popularPosts(){
+      	// SELECT post_id, comment_info, likes FROM stream WHERE source_id=me()
+      	// 
+      	// Each query of the stream table is limited to the previous 30 days or 50 posts, whichever is greater, however you can use time-specific fields such as created_time along with FQL operators (such as < or >) to retrieve a much greater range of posts.
+      	//
+      	//
+      	var Posts = function(postId, commentsCount, message, likes){
+      		this.postId = postId;
+      		this.commentsCount = commentsCount;
+      		this.message = message;
+      		this.Likes = likes;
+      	}
+      	var mapping = {
+                children: {
+                    create: function(options) {
+                        return new ChildViewModel(options.data);
+                    }
+                }
+            };
+
+
+        //created_time > 1230771661 AND created_time < 1262307661' // 2009-2010
+        //created_time > 1262307661 AND created_time < 1293843661' // 2010-2011
+        //
+        //method: 'fql.query',
+        //query: 'SELECT post_id, comment_info, message, likes FROM stream WHERE source_id=me() AND created_time > 1230771661 AND created_time <1293843661'
+        //
+        /* method: 'fql.multiquery',
+	    queries: {
+	        '2009': 'SELECT post_id, comment_info, message, likes FROM stream WHERE source_id=me() AND created_time > 1230771661 AND created_time <1262307661,
+	        '2010': 'SELECT post_id, comment_info, message, likes FROM stream WHERE source_id=me() AND created_time > 1262307661 AND created_time <1293843661'
+	    } */
+      	var postArray = new Array();
+      	 FB.api(
+          {
+            method: 'fql.multiquery',
+		    queries: {
+		        '2009': 'SELECT post_id, comment_info, message, likes FROM stream WHERE source_id=me() AND created_time > 1230771661 AND created_time <1262307661 limit 100',
+		        '2010': 'SELECT post_id, comment_info, message, likes FROM stream WHERE source_id=me() AND created_time > 1262307661 AND created_time <1293843661 limit 100',
+		        '2011': 'SELECT post_id, comment_info, message, likes FROM stream WHERE source_id=me() AND created_time > 1293843661 AND created_time <1325379661 limit 100',
+		        '2012': 'SELECT post_id, comment_info, message, likes FROM stream WHERE source_id=me() AND created_time > 1325379661 AND created_time <1357002061 limit 100',
+		        '2013': 'SELECT post_id, comment_info, message, likes FROM stream WHERE source_id=me() AND created_time > 1357002061 AND created_time <1388538061 limit 100',
+	          }
+	      },
+          function(response) {
+          	
+          	console.log(response);
+          	var dataFromServer = ko.utils.parseJson(response.data);
+          	console.log(dataFromServer);
+          	console.log("heyyyyyy");
+          	for (var key in response) {
+          		console.log(response[key]);
+          		if(response[key].name == '2009')
+          		{
+          			console.log("2009");
+          			$("#popPosts").append("<p> Posts from 2009</p>");
+          			$("#popPosts").append("<ul>");
+          			for(var k in response[key].fql_result_set){
+          			//console.log(response[key].fql_result_set[k].post_id);
+	          			$("#popPosts").append("<li> Comment id: " + response[key].fql_result_set[k].post_id +  " Comments: " + response[key].fql_result_set[k].comment_info.comment_count  
+					      	+ " Likes: " + response[key].fql_result_set[k].likes.count + " Message: " + response[key].fql_result_set[k].message + "</li>");
+					      //var p = new Posts(response[key].post_id, response[key].comment_info.comment_count, response[key].likes.count);
+					      //postArray.push(p);
+				  	}
+				  $("#popPosts").append("</ul>");
+          		}
+          		if(response[key].name == '2010')
+          		{
+          			console.log("2010");
+          			$("#popPosts").append("<p> Posts from 2010</p>");
+          			$("#popPosts").append("<ul>");
+          			for(var k in response[key].fql_result_set){
+	          			//console.log(response[key].fql_result_set[k].post_id);
+	          			$("#popPosts").append("<li> Comment id: " + response[key].fql_result_set[k].post_id +  " Comments: " + response[key].fql_result_set[k].comment_info.comment_count  
+				      	+ " Likes: " + response[key].fql_result_set[k].likes.count + " Message: " + response[key].fql_result_set[k].message + "</li>");
+				      //var p = new Posts(response[key].post_id, response[key].comment_info.comment_count, response[key].likes.count);
+				      //postArray.push(p);
+				  	}
+				  	$("#popPosts").append("</ul>");
+          		}
+
+          		if(response[key].name == '2011')
+          		{
+          			console.log("2009");
+          			$("#popPosts").append("<p> Posts from 2011</p>");
+          			$("#popPosts").append("<ul>");
+          			for(var k in response[key].fql_result_set){
+          			//console.log(response[key].fql_result_set[k].post_id);
+          				$("#popPosts").append("<li> Comment id: " + response[key].fql_result_set[k].post_id +  " Comments: " + response[key].fql_result_set[k].comment_info.comment_count  
+				      	+ " Likes: " + response[key].fql_result_set[k].likes.count + " Message: " + response[key].fql_result_set[k].message + "</li>");
+				      //var p = new Posts(response[key].post_id, response[key].comment_info.comment_count, response[key].likes.count);
+				      //postArray.push(p);
+				  }
+				  $("#popPosts").append("</ul>");
+          		}
+          		if(response[key].name == '2012')
+          		{
+          			console.log("2012");
+          			$("#popPosts").append("<p> Posts from 2012</p>");
+          			$("#popPosts").append("<ul>");
+          			for(var k in response[key].fql_result_set){
+          			//console.log(response[key].fql_result_set[k].post_id);
+          				$("#popPosts").append("<li> Comment id: " + response[key].fql_result_set[k].post_id +  " Comments: " + response[key].fql_result_set[k].comment_info.comment_count  
+				      	+ " Likes: " + response[key].fql_result_set[k].likes.count + " Message: " + response[key].fql_result_set[k].message + "</li>");
+				      //var p = new Posts(response[key].post_id, response[key].comment_info.comment_count, response[key].likes.count);
+				      //postArray.push(p);
+				  }
+				  $("#popPosts").append("</ul>");
+          		}
+          		if(response[key].name == '2013')
+          		{
+          			console.log("2013");
+          			$("#popPosts").append("<p> Posts from 2013</p>");
+          			$("#popPosts").append("<ul>");
+          			for(var k in response[key].fql_result_set){
+          			 	$("#popPosts").append("<li> Comment id: " + response[key].fql_result_set[k].post_id +  " Comments: " + response[key].fql_result_set[k].comment_info.comment_count  
+				      	+ " Likes: " + response[key].fql_result_set[k].likes.count + " Message: " + response[key].fql_result_set[k].message + "</li>");
+				      //var p = new Posts(response[key].post_id, response[key].comment_info.comment_count, response[key].likes.count);
+				      //postArray.push(p);
+				  }
+				  $("#popPosts").append("</ul>");
+          		}
+				      
+			}
+				$("#loading").hide();	
+		}
+			//not check for errors, bad boy!!!
+			
+      );
+
+     }
+
+     function familyRecords(){
+     	FB.api(
+          {
+            method: 'fql.query',
+            query: 'SELECT name, uid, relationship from family where profile_id=me()'
+          },
+          function(response) {
+          	console.log("family members");
+          	console.log(response);
+          	if(response){
+	          	for (var key in response) {
+					    var name = response[key].name;
+					    var rel = response[key].relationship;
+					    $("#familyMembers").append("<span>" + name + " is your " + rel + ".<br /><a href='https://facebook.com/" + response[key].uid + "' target='_blank'><img src='https://graph.facebook.com/" + response[key].uid + "/picture?type=square'></a><br />");
+					}
+				$("#familyMembers").show();
+			}
+		   }
+		);
+	}
+
+    
+    	
+    
+
+
+
+
+});
+
+</script>
+
+</head>
+<body>
+	<div id="fb-root">
+		
+	</div>
+<fb:login-button  autologoutlink="true"></fb:login-button>
+
+<div id="fbUser">
+	<strong>Name: </strong>
+    <span data-bind="text: name"></span><br />
+    <strong>Birthday: </strong>
+    <span data-bind="text: birthday"></span>
+</div>
+
+<div class="tagged-photos">
+	<p style="font-weight: bold;">Locations of photos user tagged in</p>
+	<span>Coordinates mean that the picture has actual coordinates.</span><br/><br/>
+	<span id="totalTagged"></span>
+</div>
+
+<span id="schoolId"></span>
+<br />
+
+<span class="title">*Click pictures to open Facebook page.</span>
+<br />
+ <span class="title"><span id="sameSchoolCount"></span> of your friends go/went to the same high school as you.</span><br/>
+ <div id="highSchoolFriends"></div>
+ <span class="title"><span id="sameCollegeCount"></span> of your friends go/went to the same college as you.</span><div id="myCollege"></div><br/>
+ <div id="collegeFriends"></div><br />
+ <span class="title"><span id="sameJobCount"></span> of your friends work or has worked at the same job as you.</span>
+ <div id="workFriends"></div>
+ 
+ <div id="familyMembers" style="display: hidden;">
+ 	<span class="title"><p> Your family details:</p></span>
+ </div>
+<!--
+<div data-bind="foreach: Posts">
+    Post id: <span data-bind="value: postId"> Comments: <span data-bind="value: commentsCount"> Likes: <span data-bind="value: commentsCount">
+</div>
+-->
+<div id="birthdayPosts" class="posts">
+	<span class="title"><p>Birthday Posts</p></span>
+</div>
+<div id="thanksPosts" class="posts">
+  <span class="title"><p>Thanksgiving Posts</p></span>
+</div>
+<div id="xmasPosts" class="posts">
+  <span class="title"><p>Christmas Posts</p></span>
+</div>
+<div id="newYearsPosts" class="posts">
+  <span class="title"><p>New Year Posts</p></span>
+</div>
+
+
+<div class="popularPosts">
+	<p>Posts by year:</p>
+	<span id="loading">Loading your posts</span>
+	<div id="popPosts"></div>
+</div>
+</body>
+</html>
